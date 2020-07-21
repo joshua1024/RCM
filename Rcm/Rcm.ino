@@ -14,7 +14,7 @@ float trimVal=0;
 float intake=0;
 float sensor=0;
 float leftSpeed=0;
-float rightspeed=0;
+float rightSpeed=0;
 
 void Enabled() { //code to run while enabled
   leftSpeed=speedVal+turnVal*(trimVal+1);
@@ -46,11 +46,11 @@ void Disable() { //shut off all outputs
 }
 
 void PowerOn() { //runs once on robot startup
-
+  pinMode(inport1,INPUT);
 }
 
 void Always(){ //always runs if void loop is running, don't control outputs here
-
+  sensor=analogRead(inport1);
 }
 
 //you can communicate booleans, bytes, ints, floats, and vectors
