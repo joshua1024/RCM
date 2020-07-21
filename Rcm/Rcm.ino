@@ -1,24 +1,48 @@
 #include "rcmutil.h"
 #include "wifi.h"
-const char *routerName = "networkName";
-const char *routerPass = "networkPass";
+const char *routerName = "chicken";
+const char *routerPass = "bawkbawk";
 const char *APPass = "RCMpassword";
-int port = 25210;
+int port = 25211;
 const boolean connectToNetwork = true; //true=try to connect to router  false=go straight to hotspot mode
-const boolean wifiRestartNotHotspot = false; //when connection issue, true=retry connection to router  false=fall back to hotspot
+const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
+float speedVal=0;
+float turnVal=0;
+float trimVal=0;
+float intake=0;
+float sensor=0;
+float leftSpeed=0;
+float rightspeed=0;
 
 void Enabled() { //code to run while enabled
-
+  leftSpeed=speedVal+turnVal*(trimVal+1);
+  rightSpeed=speedVal-turnVal*(-trimVal+1);
+  setMot(portA,rightSpeed);
+  setMot(portB,leftSpeed);
+  setMot(portC,rightSpeed);
+  setMot(portD,leftSpeed);
+  setSer(port1,intake);
+  setSer(port2,-intake);
 }
 
 void Enable() { //turn on outputs
-
+  enableMot(portA);
+  enableMot(portB);
+  enableMot(portC);
+  enableMot(portD);
+  enableSer(port1);
+  enableSer(port2);
 }
 
 void Disable() { //shut off all outputs
-
+  disableMot(portA);
+  disableMot(portB);
+  disableMot(portC);
+  disableMot(portD);
+  disableSer(port1);
+  disableSer(port2);
 }
 
 void PowerOn() { //runs once on robot startup
@@ -34,12 +58,23 @@ void WifiDataToParse() {
   wifiArrayCounter = 0;
   enabled = recvBl();
   //add data to read here:
+  speedVal=recvFl();
+  trimVal=recvFl();
+  turnVal=recvFl();
+  intake=recvFl();
 
 }
 int WifiDataToSend() {
   wifiArrayCounter = 0;
   sendFl(batVoltAvg);
   //add data to send here:
+  sendFl(sensor);
+  sendFl(0);
+  sendFl(0);
+  sendFl(0);
+  sendFl(0);
+  sendFl(0);
+  sendFl(0);
 
   return wifiArrayCounter;
 }
