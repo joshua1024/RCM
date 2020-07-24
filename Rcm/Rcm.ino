@@ -44,6 +44,12 @@ byte rightClawRange = 0;
 byte armRange = 0;
 byte armCenter = 0;
 byte motPower = 0;
+byte armSpeed = 0;
+byte armAccel = 0;
+boolean armSmooth = true;
+boolean smoothDrive = true;
+byte driveAcc = 0;
+int loadIntakeDriveTime = 0;
 
 float upLidar = 0;
 byte upLidarP = 0;
@@ -56,35 +62,131 @@ byte backLidarP = 0;
 boolean runningAutoIntakeRoutine = false;
 boolean ejectReady = false;
 boolean driveStopped = false;
+boolean armMoving = false;
 
 float leftSpeed = 0;
 float rightSpeed = 0;
+float leftWriteSpeed = 0;
+float rightWriteSpeed = 0;
 CRGB leds[12];
-float armPos = 0;
+float armPos = -1;
 float armPosSpeed = 0;
-float armPosWrite = 0;
+float armPosWrite = armPos;
 float clawPos = 0;
 unsigned long lastCycleMicros = 0;
 unsigned long lastCycleIntervalMicros = 0;
+boolean score = false;
+unsigned long loadIntakeStartMillis = 0;
+boolean loadStationIntake = false;
 
 void Enabled() { //code to run while enabled
-  if (!autoMode) {
+  if (!autoMode) {//manual
     armPos = manualArm;
     clawPos = manualClaw;
+  } else { //auto mechanism
+    if (autoIntake) {
+      score = false;
+      if (move.y - abs(move.x) > .1) {
+        clawPos = 0;
+      }
+      if (move.y - abs(move.x) < -.1) {
+        clawPos = -1;
+      }
+    }
+    if (loadingStationIntake == true) {
+      if (millis() - loadIntakeStartMillis > loadIntakeDriveTime * 7) {
+        loadStationIntake = true;
+        runningAutoIntakeRoutine = true;
+      }
+    }
+    if (loadStationIntake) {
+      if (!armMoving && clawLidarP == 1 && millis() - loadIntakeStartMillis > loadIntakeDriveTime * 7) {
+        loadIntakeStartMillis = millis();
+      }
+      score = false;
+      clawPos = 0;
+      leftSpeed = (1.0 + move.x) * (trim + 1.0);
+      rightSpeed = (1.0 - move.x) * (-trim + 1.0);
+      if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime) {
+        runningAutoIntakeRoutine = true;
+        clawPos = -1;
+        leftSpeed = (-1.0) * (trim + 1.0);
+        rightSpeed = (-1.0) * (-trim + 1.0);
+      } else  if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime * 2) {
+        runningAutoIntakeRoutine = true;
+        clawPos = 1;
+        leftSpeed = (1.0) * (trim + 1.0);
+        rightSpeed = (1.0) * (-trim + 1.0);
+      } else  if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime * 3) {
+        runningAutoIntakeRoutine = true;
+        clawPos = -1;
+        leftSpeed = (-1.0) * (trim + 1.0);
+        rightSpeed = (-1.0) * (-trim + 1.0);
+      } else  if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime * 4) {
+        runningAutoIntakeRoutine = false;
+        clawPos = -1;
+        score = true;
+        loadStationIntake = false;
+      }
+    }
+
+    if (eject) {
+      clawPos = 0;
+      score = false;
+      loadStationIntake = false;
+      runningAutoIntakeRoutine = false;
+    }
+
+    if (raiseArmToScore) {
+      score = true;
+    }
+
+
+    if (score == false) {
+      armPos = -1;
+    } else {
+      armPos = .59;
+      if (upLidarP != 0) {
+        armPos = .8;
+      }
+      if (frontLidarP == 1) {
+        armPos = -.55;
+      }
+      if (backLidarP == 1) {
+        armPos = 1;
+      }
+    }
+
+
+
   }
   if (!runningAutoIntakeRoutine && !driveStopped) {
-    leftSpeed = move.y + move.x * (trim + 1);
-    rightSpeed = move.y - move.x * (-trim + 1);
+    leftSpeed = (move.y + move.x) * (trim + 1.0);
+    rightSpeed = (move.y - move.x) * (-trim + 1.0);
   }
-  armPosSpeed = AccelDesiredSpeed();
-  armPosWrite += armPosSpeed;
+  if (armSmooth) {
+    armPosSpeed = armAccelFunction();
+    armPosWrite += armPosSpeed;
+  } else {
+    armPosWrite = armPos;
+  }
   setSer(port1, -armPosWrite, 1500 + (armCenter - 127) * 5, 1000 + (armRange - 75) * 9);
-  clawPos = constrain(clawPos, -1, 1);
+  clawPos = constrain(clawPos, -1, 0);
   setSer(port5, -clawPos, (leftClawCenter - 127) * 5 + 1500, 1000 + (leftClawRange - 100) * 5);
   setSer(port4, clawPos, (rightClawCenter - 127) * 5 + 1500, 1000 + (rightClawRange - 100) * 5);
   setMotorCalibration(motPower / 100.0, .05);
-  setMot(portA, leftSpeed);
-  setMot(portB, rightSpeed);
+  if (smoothDrive) {
+    leftWriteSpeed += constrain(leftSpeed - leftWriteSpeed, -.08 / driveAcc, .08 / driveAcc);
+    rightWriteSpeed += constrain(rightSpeed - rightWriteSpeed, -.08 / driveAcc, .08 / driveAcc);
+  } else {
+    leftWriteSpeed = leftSpeed;
+    rightWriteSpeed = rightSpeed;
+  }
+  if (jogMode) {
+
+  }
+  setMot(portA, leftWriteSpeed);
+  setMot(portB, rightWriteSpeed);
 
 }
 
@@ -191,6 +293,12 @@ void WifiDataToParse() {
   armCenter = recvBy();
   armRange = recvBy();
   motPower = recvBy();
+  armAccel = recvBy();
+  armSpeed = recvBy();
+  armSmooth = recvBl();
+  smoothDrive = recvBl();
+  driveAcc = recvBy();
+  loadIntakeDriveTime = recvBy() * 4;
 }
 int WifiDataToSend() {
   wifiArrayCounter = 0;
@@ -207,6 +315,8 @@ int WifiDataToSend() {
   sendBl(runningAutoIntakeRoutine);
   sendBl(ejectReady);
   sendBl(driveStopped);
+  sendBl(armMoving);
+  sendFl(clawPos);
   return wifiArrayCounter;
 }
 
@@ -245,17 +355,19 @@ void loop() {
     digitalWrite(ONBOARD_LED, HIGH);
   }
 }
-float AccelDesiredSpeed() {
-  int big = 1000;
+float armAccelFunction() {
+  int big = 100;
   long distanceTo = (armPos - armPosWrite) * big;
-  float _acceleration = .0000005 * big;
-  float _maxSpeed = .0012 * big;
+  float _acceleration = .0000005 * big * armAccel / 50;
+  float _maxSpeed = .0012 * big * armSpeed / 50;
   float _speed = armPosSpeed * big;
 
   // Max possible speed that can still decelerate in the available distance
   float requiredSpeed;
-  if (distanceTo == 0)
-    return 0.0; // Were there
+  if (distanceTo == 0) {
+    armMoving = false;
+    return 0.0; // We're there
+  }
   else if (distanceTo > 0) // Clockwise
     requiredSpeed = sqrt(2.0 * distanceTo * _acceleration);
   else  // Anticlockwise
@@ -281,5 +393,6 @@ float AccelDesiredSpeed() {
     if (requiredSpeed < -_maxSpeed)
       requiredSpeed = -_maxSpeed;
   }
+  armMoving = true;
   return 1.0 * requiredSpeed / big;
 }
