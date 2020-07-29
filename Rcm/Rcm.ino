@@ -8,7 +8,7 @@ const char *APPass = "RCMpassword";
 int port = 25212;
 const boolean connectToNetwork = true; //true=try to connect to router  false=go straight to hotspot mode
 const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
-const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
+const int SIGNAL_LOSS_TIMEOUT = 800; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
 PVector move = {0, 0};
 boolean climb = false;
@@ -50,6 +50,14 @@ boolean armSmooth = true;
 boolean smoothDrive = true;
 byte driveAcc = 0;
 int loadIntakeDriveTime = 0;
+float switchPos = 0.0;
+float scalePos = 0.0;
+float backSwitchPos = 0.0;
+float holdPos = 0.0;
+byte jogTime = 0;
+byte jogDuty = 0;
+boolean red = false;
+boolean scaleEject = false;
 
 float upLidar = 0;
 byte upLidarP = 0;
@@ -63,6 +71,7 @@ boolean runningAutoIntakeRoutine = false;
 boolean ejectReady = false;
 boolean driveStopped = false;
 boolean armMoving = false;
+boolean upTouch = false;
 
 float leftSpeed = 0;
 float rightSpeed = 0;
@@ -78,18 +87,33 @@ unsigned long lastCycleIntervalMicros = 0;
 boolean score = false;
 unsigned long loadIntakeStartMillis = 0;
 boolean loadStationIntake = false;
+boolean driveStopFlag = true;
+float upLidarReadVal = 0.0;
+unsigned long firefliesArray[12];
+boolean lastScore = false;
 
 void Enabled() { //code to run while enabled
   if (!autoMode) {//manual
     armPos = manualArm;
     clawPos = manualClaw;
   } else { //auto mechanism
+    if (!autoIntake && !loadingStationIntake && !eject && !raiseArmToScore) {//center pos
+      clawPos = 0;
+      if (clawLidarP == 1) {
+        clawPos = -1;
+        score = true;
+      } else {
+        if (frontLidarP == 0) {
+          score = false;
+        }
+      }
+    }
     if (autoIntake) {
       score = false;
-      if (move.y - abs(move.x) > .1) {
+      if (move.y - abs(move.x) / 2 > .01) {
         clawPos = 0;
       }
-      if (move.y - abs(move.x) < -.1) {
+      if (move.y - abs(move.x) <= .05) {
         clawPos = -1;
       }
     }
@@ -100,7 +124,7 @@ void Enabled() { //code to run while enabled
       }
     }
     if (loadStationIntake) {
-      if (!armMoving && clawLidarP == 1 && millis() - loadIntakeStartMillis > loadIntakeDriveTime * 7) {
+      if (!armMoving && (upTouch || clawLidarP == 1) && millis() - loadIntakeStartMillis > loadIntakeDriveTime * 4) {
         loadIntakeStartMillis = millis();
       }
       score = false;
@@ -108,20 +132,21 @@ void Enabled() { //code to run while enabled
       leftSpeed = (1.0 + move.x) * (trim + 1.0);
       rightSpeed = (1.0 - move.x) * (-trim + 1.0);
       if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime) {
+        setMotorCalibration(4.75, .01);
         runningAutoIntakeRoutine = true;
         clawPos = -1;
-        leftSpeed = (-1.0) * (trim + 1.0);
-        rightSpeed = (-1.0) * (-trim + 1.0);
+        leftSpeed = (-.05) * (trim + 1.0);
+        rightSpeed = (-.05) * (-trim + 1.0);
       } else  if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime * 2) {
         runningAutoIntakeRoutine = true;
-        clawPos = 1;
-        leftSpeed = (1.0) * (trim + 1.0);
-        rightSpeed = (1.0) * (-trim + 1.0);
+        clawPos = 0;
+        leftSpeed = (.05) * (trim + 1.0);
+        rightSpeed = (.05) * (-trim + 1.0);
       } else  if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime * 3) {
         runningAutoIntakeRoutine = true;
         clawPos = -1;
-        leftSpeed = (-1.0) * (trim + 1.0);
-        rightSpeed = (-1.0) * (-trim + 1.0);
+        leftSpeed = (-.05) * (trim + 1.0);
+        rightSpeed = (-.05) * (-trim + 1.0);
       } else  if (millis() - loadIntakeStartMillis <= loadIntakeDriveTime * 4) {
         runningAutoIntakeRoutine = false;
         clawPos = -1;
@@ -133,40 +158,97 @@ void Enabled() { //code to run while enabled
     if (eject) {
       clawPos = 0;
       score = false;
+      //cancel load intake
       loadStationIntake = false;
       runningAutoIntakeRoutine = false;
+
+      scaleEject = false;
     }
 
     if (raiseArmToScore) {
       score = true;
     }
-
-
-    if (score == false) {
+    if (score == false) {//intake
       armPos = -1;
-    } else {
-      armPos = .59;
-      if (upLidarP != 0) {
-        armPos = .8;
-      }
-      if (frontLidarP == 1) {
-        armPos = -.55;
+      ejectReady = false;
+      lastScore = false;
+      scaleEject = false;
+    } else {//score==true
+      if ( frontLidarP == 1 && armPosWrite >= switchPos - .02) {
+        armPos = switchPos;
+        if (clawLidarP == 1 && abs(armPosWrite - switchPos) < .05) {
+          if (autoEject) {
+            clawPos = 0;
+            armPos = holdPos;
+            //score = false;
+          }
+          ejectReady = true;
+        }
       }
       if (backLidarP == 1) {
-        armPos = 1;
+        armPos = backSwitchPos;
+        if (clawLidarP == 1 && abs(armPosWrite - backSwitchPos) < .05) {
+          if (autoEject) {
+            clawPos = 0;
+            score = false;
+          }
+          ejectReady = true;
+        }
       }
+      if (scaleEject) {
+        armPos = scalePos;
+        if (clawLidarP == 1 && upTouch && abs(armPosWrite - scalePos) < .05) {
+          if (autoEject) {
+            clawPos = 0;
+            score = false;
+            scaleEject = false;
+          }
+          ejectReady = true;
+        }
+      }
+      if (lastScore == false) {
+        armPos = holdPos;
+      }
+      lastScore = true;
     }
-
-
-
   }
+  if (autoStop) {
+    if (((upLidarP != 0 || upTouch) && move.y < 0) || (armPos > -.6 && armPosWrite > -.6 && frontLidarP == 1 && move.y > 0) || (move.y < 0 && backLidarP == 1)) {
+      if (driveStopFlag) {
+        driveStopped = true;
+      }
+    } else {
+      driveStopped = false;
+      driveStopFlag = true;
+    }
+    if (driveStopped && abs(move.y) + abs(move.x) < .06) {
+      driveStopped = false;
+      driveStopFlag = false;
+    }
+    if (driveStopped == true) {
+      leftSpeed = 0;
+      rightSpeed = 0;
+    }
+  } else {
+    driveStopFlag = true;
+    driveStopped = false;
+  }
+  if (upTouch && move.y < .1) {
+    driveStopped = true;
+    leftSpeed = 0;
+    rightSpeed = 0;
+  }
+
+
   if (!runningAutoIntakeRoutine && !driveStopped) {
     leftSpeed = (move.y + move.x) * (trim + 1.0);
     rightSpeed = (move.y - move.x) * (-trim + 1.0);
+    setMotorCalibration(motPower / 100.0, .05);
   }
   if (armSmooth) {
     armPosSpeed = armAccelFunction();
     armPosWrite += armPosSpeed;
+    armPosWrite = constrain(armPosWrite, -1, 1);
   } else {
     armPosWrite = armPos;
   }
@@ -174,7 +256,6 @@ void Enabled() { //code to run while enabled
   clawPos = constrain(clawPos, -1, 0);
   setSer(port5, -clawPos, (leftClawCenter - 127) * 5 + 1500, 1000 + (leftClawRange - 100) * 5);
   setSer(port4, clawPos, (rightClawCenter - 127) * 5 + 1500, 1000 + (rightClawRange - 100) * 5);
-  setMotorCalibration(motPower / 100.0, .05);
   if (smoothDrive) {
     leftWriteSpeed += constrain(leftSpeed - leftWriteSpeed, -.08 / driveAcc, .08 / driveAcc);
     rightWriteSpeed += constrain(rightSpeed - rightWriteSpeed, -.08 / driveAcc, .08 / driveAcc);
@@ -183,7 +264,13 @@ void Enabled() { //code to run while enabled
     rightWriteSpeed = rightSpeed;
   }
   if (jogMode) {
-
+    if (millis() % jogTime * 5 < jogDuty * 3) {
+      leftWriteSpeed = leftSpeed;
+      rightWriteSpeed = rightSpeed;
+    } else {
+      leftWriteSpeed = 0;
+      rightWriteSpeed = 0;
+    }
   }
   setMot(portA, leftWriteSpeed);
   setMot(portB, rightWriteSpeed);
@@ -211,42 +298,85 @@ void PowerOn() { //runs once on robot startup
   pinMode(inport1, INPUT);
   pinMode(inport1, INPUT);
   pinMode(port2Pin, INPUT);
-  FastLED.addLeds<WS2812B, port3Pin, GRB>(leds, 12);
-  leds[0] = CRGB(55, 0, 0);
-  leds[1] = CRGB(0, 55, 0);
-  leds[2] = CRGB(0, 55, 0);
-  leds[3] = CRGB(0, 0, 55);
-  leds[4] = CRGB(0, 0, 55);
-  leds[5] = CRGB(0, 0, 55);
-  leds[6] = CRGB(0, 0, 0);
-  FastLED.show();
+  //led setup in void setup
 }
 
 void Always() { //always runs if void loop is running, don't control outputs here
-  upLidar = map(analogRead(port2Pin), (int)upLidarMin * 16, (int)upLidarMax * 16, 0, 10000) / 10000.0;
-  upLidarP = 0;
-  if (upLidar < upLidarP3 / 255.0) {
-    upLidarP = 3;
-  } else if (upLidar < upLidarP2 / 255.0) {
-    upLidarP = 2;
-  } else  if (upLidar < upLidarP1 / 255.0) {
-    upLidarP = 1;
+  upLidarReadVal = upLidarReadVal * .8 + analogRead(port2Pin) * .2;
+  upLidar = map(upLidarReadVal, (int)upLidarMin * 16, (int)upLidarMax * 16, 0, 10000) / 10000.0;
+  if (analogRead(port2Pin) < 100) {
+    upTouch = true;
+    if (enabled && autoMode && armPosWrite > 0) {
+      scaleEject = true;
+    }
+  } else {
+    upTouch = false;
+    upLidarP = 0;
+    if (upLidar < upLidarP3 / 255.0) {
+      upLidarP = 3;
+    } else if (upLidar < upLidarP2 / 255.0) {
+      upLidarP = 2;
+    } else  if (upLidar < upLidarP1 / 255.0) {
+      upLidarP = 1;
+    }
+    if (upLidarP != 0) {
+      if (enabled && autoMode) {
+        scaleEject = true;
+      }
+    }
   }
 
-  clawLidar = map(analogRead(inport2), (int)clawLidarMin * 16, (int)clawLidarMax * 16, 0, 10000) / 10000.0;
+  clawLidar = clawLidar * .9 + .1 * map(analogRead(inport2), (int)clawLidarMin * 16, (int)clawLidarMax * 16, 0, 10000) / 10000.0;
   clawLidarP = 0;
   if (clawLidar > clawLidarP1 / 255.0) {
     clawLidarP = 1;
   }
-  frontLidar = map(analogRead(inport1), (int)frontLidarMin * 16, (int)frontLidarMax * 16, 0, 10000) / 10000.0;
+  frontLidar = frontLidar * .9 + .1 * map(analogRead(inport1), (int)frontLidarMin * 16, (int)frontLidarMax * 16, 0, 10000) / 10000.0;
   frontLidarP = 0;
   if (frontLidar > frontLidarP1 / 255.0) {
     frontLidarP = 1;
   }
-  backLidar = map(analogRead(inport3), (int)backLidarMin * 16, (int)backLidarMax * 16, 0, 10000) / 10000.0;
+  backLidar = backLidar * .9 + .1 * map(analogRead(inport3), (int)backLidarMin * 16, (int)backLidarMax * 16, 0, 10000) / 10000.0;
   backLidarP = 0;
   if (backLidar > backLidarP1 / 255.0) {
     backLidarP = 1;
+  }
+
+
+  if (!enabled) {
+    firefliesDTHSOC(.001, 400, 180, 255, true, true);
+    FastLED.show();
+  } else { //enabled
+    allRGB(0, 0, 0);
+    if (!score && clawLidarP == 1) {
+      leds[5] = CRGB(50, 255, 0);
+      leds[6] = CRGB(50, 255, 0);
+      leds[7] = CRGB(50, 255, 0);
+    }
+    if (driveStopped) {
+      allRGB(55, 0, 55);
+    }
+    if (ejectReady) {
+      leds[5] = CRGB(0, 255, 0);
+      leds[6] = CRGB(0, 255, 0);
+      leds[7] = CRGB(0, 255, 0);
+    }
+    if (millis() % 550 < 450) {
+      if (red) {
+        leds[0] = CRGB(255, 0, 0);
+        leds[4] = CRGB(255, 0, 0);
+        leds[8] = CRGB(255, 0, 0);
+      } else {
+        leds[0] = CRGB(0, 0, 255);
+        leds[4] = CRGB(0, 0, 255);
+        leds[8] = CRGB(0, 0, 255);
+      }
+    } else {
+      leds[0] = CRGB(255, 80, 0);
+      leds[4] = CRGB(255, 80, 0);
+      leds[8] = CRGB(255, 80, 0);
+    }
+    FastLED.show();
   }
 
   delayMicroseconds(100);
@@ -298,7 +428,14 @@ void WifiDataToParse() {
   armSmooth = recvBl();
   smoothDrive = recvBl();
   driveAcc = recvBy();
-  loadIntakeDriveTime = recvBy() * 4;
+  loadIntakeDriveTime = recvBy() * 8;
+  switchPos = recvBy() / 127.0 - 1;
+  scalePos = recvBy() / 127.0 - 1;
+  backSwitchPos = recvBy() / 127.0 - 1;
+  holdPos = recvBy() / 127.0 - 1;
+  jogTime = recvBy();
+  jogDuty = recvBy();
+  red = recvBl();
 }
 int WifiDataToSend() {
   wifiArrayCounter = 0;
@@ -317,6 +454,8 @@ int WifiDataToSend() {
   sendBl(driveStopped);
   sendBl(armMoving);
   sendFl(clawPos);
+  sendBl(upTouch);
+  sendBl(scaleEject);
   return wifiArrayCounter;
 }
 
@@ -327,6 +466,9 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println("##########esp32 powered on.");
+  FastLED.addLeds<WS2812B, port3Pin, GRB>(leds, 12);
+  leds[0] = CRGB(55, 70, 0);
+  FastLED.show();
   setupWifi();
   batVoltAvg = analogRead(BAT_PIN) / DAC_UnitsPerVolt;
   PowerOn();
@@ -358,8 +500,8 @@ void loop() {
 float armAccelFunction() {
   int big = 100;
   long distanceTo = (armPos - armPosWrite) * big;
-  float _acceleration = .0000005 * big * armAccel / 50;
-  float _maxSpeed = .0012 * big * armSpeed / 50;
+  float _acceleration = .000005 * big * armAccel / 50;
+  float _maxSpeed = .012 * big * armSpeed / 50;
   float _speed = armPosSpeed * big;
 
   // Max possible speed that can still decelerate in the available distance
@@ -395,4 +537,33 @@ float armAccelFunction() {
   }
   armMoving = true;
   return 1.0 * requiredSpeed / big;
+}
+
+void firefliesDTHSOC(float d, int t, int h, int s, boolean o, boolean c) {
+  for (int i = 0; i < 12; i++) {
+    if (-firefliesArray[i] + millis() > t) {
+      if (random(0, 1000) < d * 1000.0000) {
+        firefliesArray[random(0, 12 - 1)] = millis();
+      }
+    }
+  }
+  for (int i = 0; i < 12; i++) {
+    if (c == true) {
+      h = firefliesArray[i] % 256;
+    }
+    if (-firefliesArray[i] + millis() <= t / 2 && -firefliesArray[i] + millis() > 0) {
+      leds[i] = CHSV(h, s, map(millis() - firefliesArray[i], 0, t / 2, 0, 255));
+    }
+    if (-firefliesArray[i] + millis() > t / 2 && -firefliesArray[i] + millis() <= t) {
+      leds[i] = CHSV(h, s, map(millis() - firefliesArray[i], t / 2, t, 255, 0));
+    }
+    if (-firefliesArray[i] + millis() > t && o == true) {
+      leds[i] = CRGB(0, 0, 0);
+    }
+  }
+}
+void allRGB(int valr, int valg, int valb) {
+  for (int i = 0; i < 12; i++) {
+    leds[i] = CRGB(valr, valg, valb);
+  }
 }
