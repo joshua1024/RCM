@@ -27,8 +27,8 @@ void Enabled() { //code to run while enabled
   setMot(portD, leftSpeed);
   setSer(port1, intake);
   setSer(port2, -intake);
-  setSer(port3, shoulder);
-  setSer(port4, elbow);
+  setSer(port3, shoulder, 1400, 2000);
+  setSer(port4, elbow, 1500, 2200);
 }
 
 void Enable() { //turn on outputs
