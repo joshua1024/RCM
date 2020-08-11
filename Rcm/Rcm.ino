@@ -1,14 +1,17 @@
+/*TODO:
+   auto stop when intaking
+
+*/
 #include "rcmutil.h"
 #include "wifi.h"
 #include <FastLED.h>
-
 const char *routerName = "chicken";
 const char *routerPass = "bawkbawk";
 const char *APPass = "RCMpassword";
 int port = 25212;
 const boolean connectToNetwork = true; //true=try to connect to router  false=go straight to hotspot mode
 const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
-const int SIGNAL_LOSS_TIMEOUT = 800; //disable if no signal after this many milliseconds
+const int SIGNAL_LOSS_TIMEOUT = 3000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
 PVector move = {0, 0};
 boolean climb = false;
@@ -57,7 +60,7 @@ float holdPos = 0.0;
 byte jogTime = 0;
 byte jogDuty = 0;
 boolean red = false;
-boolean scaleEject = false;
+float climbSpeed = 0;
 
 float upLidar = 0;
 byte upLidarP = 0;
@@ -72,6 +75,7 @@ boolean ejectReady = false;
 boolean driveStopped = false;
 boolean armMoving = false;
 boolean upTouch = false;
+boolean scaleEject = false;
 
 float leftSpeed = 0;
 float rightSpeed = 0;
@@ -185,16 +189,6 @@ void Enabled() { //code to run while enabled
           ejectReady = true;
         }
       }
-      if (backLidarP == 1) {
-        armPos = backSwitchPos;
-        if (clawLidarP == 1 && abs(armPosWrite - backSwitchPos) < .05) {
-          if (autoEject) {
-            clawPos = 0;
-            score = false;
-          }
-          ejectReady = true;
-        }
-      }
       if (scaleEject) {
         armPos = scalePos;
         if (clawLidarP == 1 && upTouch && abs(armPosWrite - scalePos) < .05) {
@@ -202,6 +196,16 @@ void Enabled() { //code to run while enabled
             clawPos = 0;
             score = false;
             scaleEject = false;
+          }
+          ejectReady = true;
+        }
+      }
+      if (backLidarP == 1) {
+        armPos = backSwitchPos;
+        if (clawLidarP == 1 && abs(armPosWrite - backSwitchPos) < .05) {
+          if (autoEject) {
+            clawPos = 0;
+            score = false;
           }
           ejectReady = true;
         }
@@ -239,7 +243,6 @@ void Enabled() { //code to run while enabled
     rightSpeed = 0;
   }
 
-
   if (!runningAutoIntakeRoutine && !driveStopped) {
     leftSpeed = (move.y + move.x) * (trim + 1.0);
     rightSpeed = (move.y - move.x) * (-trim + 1.0);
@@ -264,7 +267,7 @@ void Enabled() { //code to run while enabled
     rightWriteSpeed = rightSpeed;
   }
   if (jogMode) {
-    if (millis() % jogTime * 5 < jogDuty * 3) {
+    if (millis() % (jogTime * 10) < jogDuty * jogTime * 10 / 255) {
       leftWriteSpeed = leftSpeed;
       rightWriteSpeed = rightSpeed;
     } else {
@@ -272,13 +275,22 @@ void Enabled() { //code to run while enabled
       rightWriteSpeed = 0;
     }
   }
+  if (millis() - lastMessageTimeMillis > SIGNAL_LOSS_TIMEOUT / 3) {
+    leftWriteSpeed = 0;
+    rightWriteSpeed = 0;
+  }
   setMot(portA, leftWriteSpeed);
-  setMot(portB, rightWriteSpeed);
-
+  setMot(portD, rightWriteSpeed);
+  if (climb) {
+    setMot(portB, climbSpeed);
+  } else {
+    setMot(portB, 0);
+  }
 }
 
 void Enable() { //turn on outputs
   enableMot(portA);
+  enableMot(portD);
   enableMot(portB);
   enableSer(port1);
   enableSer(port4);
@@ -287,6 +299,7 @@ void Enable() { //turn on outputs
 
 void Disable() { //shut off all outputs
   disableMot(portA);
+  disableMot(portD);
   disableMot(portB);
   disableSer(port1);
   disableSer(port4);
@@ -341,40 +354,44 @@ void Always() { //always runs if void loop is running, don't control outputs her
   if (backLidar > backLidarP1 / 255.0) {
     backLidarP = 1;
   }
-
-
   if (!enabled) {
     firefliesDTHSOC(.001, 400, 180, 255, true, true);
     FastLED.show();
   } else { //enabled
     allRGB(0, 0, 0);
     if (!score && clawLidarP == 1) {
-      leds[5] = CRGB(50, 255, 0);
-      leds[6] = CRGB(50, 255, 0);
-      leds[7] = CRGB(50, 255, 0);
+      leds[8] = CRGB(50, 255, 0);
+      leds[9] = CRGB(50, 255, 0);
+      leds[10] = CRGB(50, 255, 0);
     }
     if (driveStopped) {
       allRGB(55, 0, 55);
     }
     if (ejectReady) {
-      leds[5] = CRGB(0, 255, 0);
-      leds[6] = CRGB(0, 255, 0);
-      leds[7] = CRGB(0, 255, 0);
+      leds[8] = CRGB(0, 255, 0);
+      leds[9] = CRGB(0, 255, 0);
+      leds[10] = CRGB(0, 255, 0);
     }
-    if (millis() % 550 < 450) {
+    if (millis() % 550 < 350) {
       if (red) {
-        leds[0] = CRGB(255, 0, 0);
-        leds[4] = CRGB(255, 0, 0);
-        leds[8] = CRGB(255, 0, 0);
+        leds[3] = CRGB(255, 0, 0);
+        leds[7] = CRGB(255, 0, 0);
+        leds[11] = CRGB(255, 0, 0);
       } else {
-        leds[0] = CRGB(0, 0, 255);
-        leds[4] = CRGB(0, 0, 255);
-        leds[8] = CRGB(0, 0, 255);
+        leds[3] = CRGB(0, 0, 255);
+        leds[7] = CRGB(0, 0, 255);
+        leds[11] = CRGB(0, 0, 255);
       }
     } else {
-      leds[0] = CRGB(255, 80, 0);
-      leds[4] = CRGB(255, 80, 0);
-      leds[8] = CRGB(255, 80, 0);
+      if (red) {
+        leds[3] = CRGB(95, 0, 0);
+        leds[7] = CRGB(95, 0, 0);
+        leds[11] = CRGB(95, 0, 0);
+      } else {
+        leds[3] = CRGB(0, 0, 95);
+        leds[7] = CRGB(0, 0, 95);
+        leds[11] = CRGB(0, 0, 95);
+      }
     }
     FastLED.show();
   }
@@ -436,6 +453,7 @@ void WifiDataToParse() {
   jogTime = recvBy();
   jogDuty = recvBy();
   red = recvBl();
+  climbSpeed = recvBy() / 127.0 - 1;
 }
 int WifiDataToSend() {
   wifiArrayCounter = 0;
@@ -467,7 +485,7 @@ void setup() {
   Serial.println();
   Serial.println("##########esp32 powered on.");
   FastLED.addLeds<WS2812B, port3Pin, GRB>(leds, 12);
-  leds[0] = CRGB(55, 70, 0);
+  leds[3] = CRGB(55, 70, 0);
   FastLED.show();
   setupWifi();
   batVoltAvg = analogRead(BAT_PIN) / DAC_UnitsPerVolt;
