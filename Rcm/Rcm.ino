@@ -1,6 +1,5 @@
 /*TODO:
-   auto stop when intaking
-
+  override cube detection for auto intake routine
 */
 #include "rcmutil.h"
 #include "wifi.h"
@@ -105,7 +104,9 @@ void Enabled() { //code to run while enabled
       clawPos = 0;
       if (clawLidarP == 1) {
         clawPos = -1;
-        score = true;
+        if (!autoStop || !(move.y > -.05)) {
+          score = true;
+        }
       } else {
         if (frontLidarP == 0) {
           score = false;
@@ -217,7 +218,7 @@ void Enabled() { //code to run while enabled
     }
   }
   if (autoStop) {
-    if (((upLidarP != 0 || upTouch) && move.y < 0) || (armPos > -.6 && armPosWrite > -.6 && frontLidarP == 1 && move.y > 0) || (move.y < 0 && backLidarP == 1)) {
+    if ((score && (((upLidarP != 0 || upTouch) && move.y < -.05) || (armPos > -.6 && armPosWrite > -.6 && frontLidarP == 1 && move.y > -.05) || (move.y < -.05 && backLidarP == 1))) || (!score && (move.y > -.05 && clawLidarP == 1))) {
       if (driveStopFlag) {
         driveStopped = true;
       }
