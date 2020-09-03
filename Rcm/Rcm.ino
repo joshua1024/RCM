@@ -8,27 +8,24 @@ const boolean connectToNetwork = true; //true=try to connect to router  false=go
 const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
-float speedVal = 0;
-float turnVal = 0;
-float trimVal = 0;
-float intake = 0;
-float sensor = 0;
-float leftSpeed = 0;
-float rightSpeed = 0;
-float shoulder = 0;
-float elbow = 0;
+float val1 = 0.0;
+float val2 = 0.0;
+float val3 = 0.0;
+float val4 = 0.0;
+float val5 = 0.0;
+float val6 = 0.0;
+float val7 = 0.0;
+float val8 = 0.0;
 
 void Enabled() { //code to run while enabled
-  leftSpeed = speedVal + turnVal * (trimVal + 1);
-  rightSpeed = speedVal - turnVal * (-trimVal + 1);
-  setMot(portA, rightSpeed);
-  setMot(portB, leftSpeed);
-  setMot(portC, rightSpeed);
-  setMot(portD, leftSpeed);
-  setSer(port1, intake);
-  setSer(port2, -intake);
-  setSer(port3, shoulder, 1400, 2000);
-  setSer(port4, elbow, 1500, 2200);
+  setMot(portA, val1);
+  setMot(portB, val2);
+  setMot(portC, val3);
+  setMot(portD, val4);
+  setSer(port1, val5, 1500, 1000);
+  setSer(port2, val6, 1500, 1000);
+  setSer(port3, val7, 1500, 1000);
+  setSer(port4, val8, 1500, 1000);
 }
 
 void Enable() { //turn on outputs
@@ -54,11 +51,9 @@ void Disable() { //shut off all outputs
 }
 
 void PowerOn() { //runs once on robot startup
-  pinMode(inport1, INPUT);
 }
 
 void Always() { //always runs if void loop is running, don't control outputs here
-  sensor = analogRead(inport1);
 }
 
 //you can communicate booleans, bytes, ints, floats, and vectors
@@ -66,19 +61,21 @@ void WifiDataToParse() {
   wifiArrayCounter = 0;
   enabled = recvBl();
   //add data to read here:
-  speedVal = recvFl();
-  trimVal = recvFl();
-  turnVal = recvFl();
-  intake = recvFl();
-  shoulder = recvFl();
-  elbow = recvFl();
+  val1 = recvFl();
+  val2 = recvFl();
+  val3 = recvFl();
+  val4 = recvFl();
+  val5 = recvFl();
+  val6 = recvFl();
+  val7 = recvFl();
+  val8 = recvFl();
 
 }
 int WifiDataToSend() {
   wifiArrayCounter = 0;
   sendFl(batVoltAvg);
   //add data to send here:
-  sendFl(sensor);
+  sendFl(0);
   sendFl(0);
   sendFl(0);
   sendFl(0);
