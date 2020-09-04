@@ -8,27 +8,74 @@ const boolean connectToNetwork = true; //true=try to connect to router  false=go
 const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
+const unsigned int preIntakeDelay = 500;
+const unsigned int postIntakeDelay = 250;
+
 float speedVal = 0;
-float turnVal = 0;
 float trimVal = 0;
-float intake = 0;
-float sensor = 0;
-float leftSpeed = 0;
-float rightSpeed = 0;
-float shoulder = 0;
-float elbow = 0;
+float turnVal = 0;
+float lift = 0;
+float climb = 0;
+float intakeFl = 0;
+float ejectFl = 0;
+boolean revIntake = false;
+boolean intake = false;
+boolean eject = false;
+boolean preIntake = false;
+boolean postIntake = false;
+boolean wasIntaking = false;
+unsigned long intakeSwitch = 0;
+
 
 void Enabled() { //code to run while enabled
+  //delays for auto sequences
+  intake = intakeFl == 1;
+  revIntake = intakeFl == -1;
+  eject = ejectFl == 1;
+  preIntake = (intake && millis() - intakeSwitch < preIntakeDelay);
+  postIntake = (!intake && millis() - intakeSwitch < postIntakeDelay);
+
+  //Drive
   leftSpeed = speedVal + turnVal * (trimVal + 1);
   rightSpeed = speedVal - turnVal * (-trimVal + 1);
   setMot(portA, rightSpeed);
   setMot(portB, leftSpeed);
-  setMot(portC, rightSpeed);
-  setMot(portD, leftSpeed);
-  setSer(port1, intake);
-  setSer(port2, -intake);
-  setSer(port3, shoulder, 1400, 2000);
-  setSer(port4, elbow, 1500, 2200);
+
+  //Climb
+  setMot(portC, climb);
+
+  //Lift
+  setSer(port1, lift, 1500, 1000);
+  if (lift > -.95) {
+    intake = false;
+  }
+
+  //Chin
+  if (intake) {
+    setSer(port2, -1, 1500, 1000); //chin down
+  } else {
+    setSer(port2, 1, 1500, 1000); //chin up
+  }
+
+  //Claw
+  if (eject || intake || postIntake) {
+    setSer(port3, 1, 1500, 1000); //claw open
+  } else {
+    setSer(port3, -1, 1500, 1000); //claw close
+  }
+
+  //Intake
+  if (revIntake) {
+    setMot(portD, 1); //intake out
+  } else  if (intake && !preIntake) {
+    setMot(portD, -1); //intake in
+  }
+
+  //start timer on intake state change
+  if (intake != wasIntaking) {
+    intakeSwitch = millis();
+  }
+  wasIntaking = intake;
 }
 
 void Enable() { //turn on outputs
