@@ -4,8 +4,8 @@ const char *routerName = "chicken";
 const char *routerPass = "bawkbawk";
 const char *APPass = "RCMpassword";
 int port = 25211;
-const boolean connectToNetwork = true; //true=try to connect to router  false=go straight to hotspot mode
-const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
+const boolean connectToNetwork = false; //true=try to connect to router  false=go straight to hotspot mode
+const boolean wifiRestartNotHotspot = false; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
 float val1 = 0.0;
@@ -26,6 +26,7 @@ void Enabled() { //code to run while enabled
   setSer(port2, val6, 1500, 1000);
   setSer(port3, val7, 1500, 1000);
   setSer(port4, val8, 1500, 1000);
+  setSer(port5, val8, 1500, 1000);
 }
 
 void Enable() { //turn on outputs
@@ -37,6 +38,7 @@ void Enable() { //turn on outputs
   enableSer(port2);
   enableSer(port3);
   enableSer(port4);
+  enableSer(port5);
 }
 
 void Disable() { //shut off all outputs
@@ -48,6 +50,7 @@ void Disable() { //shut off all outputs
   disableSer(port2);
   disableSer(port3);
   disableSer(port4);
+  disableSer(port5);
 }
 
 void PowerOn() { //runs once on robot startup
