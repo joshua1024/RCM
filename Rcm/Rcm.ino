@@ -25,6 +25,8 @@ boolean preIntake = false;
 boolean postIntake = false;
 boolean wasIntaking = false;
 unsigned long intakeSwitch = 0;
+float leftSpeed = 0;
+float rightSpeed = 0;
 
 
 void Enabled() { //code to run while enabled
@@ -100,11 +102,9 @@ void Disable() { //shut off all outputs
 }
 
 void PowerOn() { //runs once on robot startup
-  pinMode(inport1, INPUT);
 }
 
 void Always() { //always runs if void loop is running, don't control outputs here
-  sensor = analogRead(inport1);
 }
 
 //you can communicate booleans, bytes, ints, floats, and vectors
@@ -115,18 +115,16 @@ void WifiDataToParse() {
   speedVal = recvFl();
   trimVal = recvFl();
   turnVal = recvFl();
-  intake = recvFl();
-  shoulder = recvFl();
-  elbow = recvFl();
+  lift = recvFl();
+  climb = recvFl();
+  intakeFl = recvFl();
+  ejectFl = recvFl();
 
 }
 int WifiDataToSend() {
   wifiArrayCounter = 0;
   sendFl(batVoltAvg);
   //add data to send here:
-  sendFl(sensor);
-  sendFl(0);
-  sendFl(0);
   sendFl(0);
   sendFl(0);
   sendFl(0);
