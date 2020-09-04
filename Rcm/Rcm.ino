@@ -38,8 +38,8 @@ void Enabled() { //code to run while enabled
   //Drive
   leftSpeed = speedVal + turnVal * (trimVal + 1);
   rightSpeed = speedVal - turnVal * (-trimVal + 1);
-  setMot(portA, rightSpeed);
-  setMot(portB, leftSpeed);
+  setMot(portB, rightSpeed);
+  setMot(portD, leftSpeed);
 
   //Climb
   setMot(portC, climb);
@@ -52,23 +52,23 @@ void Enabled() { //code to run while enabled
 
   //Chin
   if (intake) {
-    setSer(port2, -1, 1500, 1000); //chin down
+    setSer(port3, -1, 1500, 1000); //chin down
   } else {
-    setSer(port2, 1, 1500, 1000); //chin up
+    setSer(port3, 1, 1500, 1000); //chin up
   }
 
   //Claw
   if (eject || intake || postIntake) {
-    setSer(port3, 1, 1500, 1000); //claw open
+    setSer(port2, 1, 1500, 1000); //claw open
   } else {
-    setSer(port3, -1, 1500, 1000); //claw close
+    setSer(port2, -1, 1500, 1000); //claw close
   }
 
   //Intake
   if (revIntake) {
-    setMot(portD, 1); //intake out
+    setMot(portA, 1); //intake out
   } else  if (intake && !preIntake) {
-    setMot(portD, -1); //intake in
+    setMot(portA, -1); //intake in
   }
 
   //start timer on intake state change
@@ -86,7 +86,6 @@ void Enable() { //turn on outputs
   enableSer(port1);
   enableSer(port2);
   enableSer(port3);
-  enableSer(port4);
 }
 
 void Disable() { //shut off all outputs
