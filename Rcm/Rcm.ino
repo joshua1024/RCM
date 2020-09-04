@@ -4,8 +4,8 @@ const char *routerName = "chicken";
 const char *routerPass = "bawkbawk";
 const char *APPass = "RCMpassword";
 int port = 25211;
-const boolean connectToNetwork = false; //true=try to connect to router  false=go straight to hotspot mode
-const boolean wifiRestartNotHotspot = false; //when connection issue, true=retry connection to router  false=fall back to hotspot
+const boolean connectToNetwork = true; //true=try to connect to router  false=go straight to hotspot mode
+const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
 float val1 = 0.0;
@@ -22,7 +22,7 @@ void Enabled() { //code to run while enabled
   setMot(portB, val2);
   setMot(portC, val3);
   setMot(portD, val4);
-  setSer(port1, val5, 1500, 1000);
+  setSer(port1, -val5, 1280, 1480);
   setSer(port2, val6, 1500, 1000);
   setSer(port3, val7, 1500, 1000);
   setSer(port4, val8, 1500, 1000);
@@ -78,6 +78,7 @@ int WifiDataToSend() {
   wifiArrayCounter = 0;
   sendFl(batVoltAvg);
   //add data to send here:
+  sendFl(0);
   sendFl(0);
   sendFl(0);
   sendFl(0);
