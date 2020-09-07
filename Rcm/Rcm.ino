@@ -8,8 +8,8 @@ const boolean connectToNetwork = true; //true=try to connect to router  false=go
 const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
 //////////////////////////// add variables here
-const unsigned int preIntakeDelay = 500;
-const unsigned int postIntakeDelay = 250;
+const unsigned int preIntakeDelay = 100;
+const unsigned int postIntakeDelay = 200;
 
 float speedVal = 0;
 float trimVal = 0;
@@ -40,37 +40,39 @@ void Enabled() { //code to run while enabled
   //Drive
   leftSpeed = speedVal + turnVal * (trimVal + 1);
   rightSpeed = speedVal - turnVal * (-trimVal + 1);
-  setMot(portB, rightSpeed);
-  setMot(portD, leftSpeed);
+  setMot(portD, -rightSpeed);
+  setMot(portB, -leftSpeed);
 
   //Climb
-  setMot(portC, climb);
+  setMot(portC, -climb);
 
   //Lift
-  setSer(port1, lift, 1500, 1000);
+  setSer(port1, -lift, 1280, 1480);
   if (lift > -.95) {
     intake = false;
   }
 
   //Chin
   if (intake) {
-    setSer(port3, -1, 1500, 1000); //chin down
+    setSer(port3, .15); //chin down
   } else {
-    setSer(port3, 1, 1500, 1000); //chin up
+    setSer(port3, .66); //chin up
   }
 
   //Claw
   if (eject || intake || postIntake) {
-    setSer(port2, 1, 1500, 1000); //claw open
+    setSer(port2, .25); //claw open
   } else {
-    setSer(port2, -1, 1500, 1000); //claw close
+    setSer(port2, -.12); //claw close
   }
 
   //Intake
   if (revIntake) {
-    setMot(portA, 1); //intake out
+    setMot(portA, (float)(.8)); //intake out
   } else  if (intake && !preIntake) {
-    setMot(portA, -1); //intake in
+    setMot(portA, (float)(-.7)); //intake in
+  } else {
+    setMot(portA, (float)(0.0));
   }
 
   //start timer on intake state change
@@ -125,6 +127,9 @@ int WifiDataToSend() {
   wifiArrayCounter = 0;
   sendFl(batVoltAvg);
   //add data to send here:
+  sendFl(0);
+  sendFl(0);
+  sendFl(0);
   sendFl(0);
   sendFl(0);
   sendFl(0);
