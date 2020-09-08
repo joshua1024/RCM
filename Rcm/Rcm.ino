@@ -104,6 +104,7 @@ void Disable() { //shut off all outputs
 }
 
 void PowerOn() { //runs once on robot startup
+  setMotorCalibration(2.2, .05);
 }
 
 void Always() { //always runs if void loop is running, don't control outputs here
@@ -127,13 +128,6 @@ int WifiDataToSend() {
   wifiArrayCounter = 0;
   sendFl(batVoltAvg);
   //add data to send here:
-  sendFl(0);
-  sendFl(0);
-  sendFl(0);
-  sendFl(0);
-  sendFl(0);
-  sendFl(0);
-  sendFl(0);
 
   return wifiArrayCounter;
 }
