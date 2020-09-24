@@ -1,5 +1,6 @@
 /*TODO:
-  override cube detection for auto intake routine
+
+
 */
 #include "rcmutil.h"
 #include "wifi.h"
@@ -129,8 +130,8 @@ void Enabled() { //code to run while enabled
       }
     }
     if (loadStationIntake) {
-      if (!armMoving && (upTouch || clawLidarP == 1) && millis() - loadIntakeStartMillis > loadIntakeDriveTime * 4) {
-        loadIntakeStartMillis = millis();
+      if ((!loadingStationIntake || (!armMoving && (upTouch || clawLidarP == 1))) && millis() - loadIntakeStartMillis > loadIntakeDriveTime * 7) {
+        loadIntakeStartMillis = millis(); //reverse, hit first cube
       }
       score = false;
       clawPos = 0;
