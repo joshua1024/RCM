@@ -175,7 +175,9 @@ void Enabled() { //code to run while enabled
       score = true;
     }
     if (score == false) {//intake
-      armPos = -1;
+      if (frontLidarP != 1) {
+        armPos = -1;
+      }
       ejectReady = false;
       lastScore = false;
       scaleEject = false;
@@ -219,7 +221,7 @@ void Enabled() { //code to run while enabled
     }
   }
   if (autoStop) {
-    if ((score && (((upLidarP != 0 || upTouch) && move.y < -.05) || (armPos > -.6 && armPosWrite > -.6 && frontLidarP == 1 && move.y > -.05) || (move.y < -.05 && backLidarP == 1))) || (!score && (move.y > -.05 && clawLidarP == 1))) {
+    if ((score && (((upLidarP != 0 || upTouch) && move.y < .05) || (armPos > -.6 && armPosWrite > -.6 && frontLidarP == 1 && move.y > -.05) || (move.y < .05 && backLidarP == 1))) || (!score && (move.y > -.05 && clawLidarP == 1))) {
       if (driveStopFlag) {
         driveStopped = true;
       }
@@ -227,7 +229,7 @@ void Enabled() { //code to run while enabled
       driveStopped = false;
       driveStopFlag = true;
     }
-    if (driveStopped && abs(move.y) + abs(move.x) < .06) {
+    if (driveStopped && abs(move.y) <= .05) {
       driveStopped = false;
       driveStopFlag = false;
     }
