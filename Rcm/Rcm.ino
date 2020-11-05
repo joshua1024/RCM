@@ -15,6 +15,7 @@ const int SIGNAL_LOSS_TIMEOUT = 3000; //disable if no signal after this many mil
 //////////////////////////// add variables here
 PVector move = {0, 0};
 boolean climb = false;
+boolean reverseClimb = false;
 boolean raiseArmToScore = false;
 boolean loadingStationIntake = false;
 boolean eject = false;
@@ -287,6 +288,8 @@ void Enabled() { //code to run while enabled
   setMot(portD, rightWriteSpeed);
   if (climb) {
     setMot(portB, climbSpeed);
+  } else if (reverseClimb) {
+    setMot(portB, -climbSpeed);
   } else {
     setMot(portB, 0);
   }
@@ -415,6 +418,7 @@ void WifiDataToParse() {
   autoEject = recvBl();
   autoStop = recvBl();
   climb = recvBl();
+  reverseClimb = recvBl();
   raiseArmToScore = recvBl();
   loadingStationIntake = recvBl();
   eject = recvBl();
