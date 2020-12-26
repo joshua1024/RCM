@@ -1,9 +1,9 @@
 #include "rcmutil.h"
 #include "wifi.h"
-const char *routerName = "chicken";
-const char *routerPass = "bawkbawk";
+const char *routerName = "Garage2.4";
+const char *routerPass = "TamiBeach";
 const char *APPass = "RCMpassword";
-int port = 25211;
+int port = 25210;
 const boolean connectToNetwork = true; //true=try to connect to router  false=go straight to hotspot mode
 const boolean wifiRestartNotHotspot = true; //when connection issue, true=retry connection to router  false=fall back to hotspot
 const int SIGNAL_LOSS_TIMEOUT = 1000; //disable if no signal after this many milliseconds
@@ -47,7 +47,7 @@ void Enabled() { //code to run while enabled
   setMot(portC, -climb);
 
   //Lift
-  setSer(port1, -lift, 1280, 1480);
+  setSer(port1, -lift, 440, 2000);
   if (lift > -.95) {
     intake = false;
   }
@@ -61,9 +61,9 @@ void Enabled() { //code to run while enabled
 
   //Claw
   if (eject || intake || postIntake) {
-    setSer(port2, .25); //claw open
+    setSer(port2, .65); //claw open
   } else {
-    setSer(port2, -.12); //claw close
+    setSer(port2, -.05); //claw close
   }
 
   //Intake
